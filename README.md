@@ -7,8 +7,7 @@ Create a class with a decorator to hold paths relative to .py file location (anc
 ```python
 from targets import targets, TargetPath
 
-@targets(__file__) # Script's .py file location
-
+@targets(__file__)
 class DataDir(Targets):
     DATA = TargetPath('data')
     RAW = TargetPath('data/raw')
