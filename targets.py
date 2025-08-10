@@ -5,7 +5,7 @@ Create a class with a decorator to hold paths relative to .py file location (anc
 
 from targets import targets, TargetPath
 
-@targets(__file__) # Script's .py file location
+@targets(__file__, ensure=True) # Script's .py file location, ensure that the directories exist
 class DataDir(Targets):
     DATA = TargetPath('data')
     RAW = TargetPath('data/raw')
@@ -24,24 +24,36 @@ import os
 class TargetPath(str):
     def __init__(self, relative_path : str):
         self.relative_path = relative_path
-        self.anchor = './'
-        self._recreate_paths()
-    def _recreate_paths(self):
-        self.path = os.path.abspath(os.path.join(self.anchor, self.relative_path))
-    def __call__(self, filename : str = ''):
-        return os.path.join(self.path, filename or '')
+        self.path = ''
+        super().__init__()
+    def _add_anchor(self, anchor : str):
+        path = os.path.abspath(os.path.join(anchor, self.relative_path))
+        new_target_path = TargetPath(path)
+        new_target_path.path = path
+        return new_target_path
+    def ensure(self):
+        os.makedirs(self.path, exist_ok=True)
+    def __call__(self, filename : str | list[str] = '') -> str | list[str]:
+        if isinstance(filename, str):
+            return os.path.join(self.path, filename or '')
+        if isinstance(filename, list):
+            return [os.path.join(self.path, f or '') for f in filename]
     def __repr__(self):
-        return self.path
+        return self.path or self.relative_path
     def __str__(self):
-        return self.path
+        return self.path or self.relative_path
         
-def targets(anchor : str):
+def targets(anchor : str, ensure = False):
     if not os.path.isdir(anchor):
         anchor = os.path.dirname(anchor)
     def updater(cls):
-        for v in cls.__dict__.values():
+        for k, v in cls.__dict__.copy().items():
+            if k.startswith('_'):
+                continue
             if isinstance(v, TargetPath):
-                v.anchor = anchor
-                v._recreate_paths()
+                new_v = v._add_anchor(anchor)
+                setattr(cls, k, new_v)
+                if ensure:
+                    new_v.ensure()
         return cls
     return updater
